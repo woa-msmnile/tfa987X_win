@@ -30,7 +30,8 @@ WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with
 %ManufacturerName%=Standard,NT$ARCH$
 
 [Standard.NT$ARCH$]
-%TFA987x_amp.DeviceDesc%=TFA987x_amp_Device, ACPI\GTFA9874 ; TODO: edit hw-id
+%TFA987x_amp.DeviceDesc%=TFA987x_amp_Device, ACPI\GTFA9874
+%TFA987x_amp.DeviceDesc%=TFA987x_amp_Device, ACPI\GTFA9872
 
 [TFA987x_amp_Device.NT]
 CopyFiles=Drivers_Dir

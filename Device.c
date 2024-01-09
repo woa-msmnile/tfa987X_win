@@ -122,7 +122,8 @@ StartAmp(PDEVICE_CONTEXT pDevice) {
     /* No current/voltage sense over TDM */
     status |= UpdateBits(pDevice, 0x23, 0x001b, 0x0001);
     status |= UpdateBits(pDevice, 0x26, 0x000f, 0x0000);
-    //status |= UpdateBits(pDevice, 0x64, 0xc000, 0x4000);
+    if ((rev & 0xff) == 0x72)
+        status |= UpdateBits(pDevice, 0x64, 0xc000, 0x4000);
     
     /* Turn on this thing */
     status |= UpdateBits(pDevice, 0x00, 0x0001, 0x0000);
