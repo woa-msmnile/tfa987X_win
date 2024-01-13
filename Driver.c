@@ -127,6 +127,11 @@ OnPrepareHardware(
         status = STATUS_NOT_FOUND;
     }
 
+    status = GetDeviceUID(FxDevice, &pDevice->AmpID);
+    if (!NT_SUCCESS(status)) {
+        pDevice->AmpID = 0xFF;
+    }
+
     //
     // Create the interrupt if an interrupt
     // resource was found.
@@ -358,4 +363,95 @@ Return Value:
     // Stop WPP Tracing
     //
     WPP_CLEANUP(WdfDriverWdmGetDriverObject((WDFDRIVER)DriverObject));
+}
+
+
+NTSTATUS
+GetDeviceUID(
+    _In_ WDFDEVICE FxDevice,
+    _In_ PINT32 PUID
+)
+{
+    NTSTATUS status = STATUS_ACPI_NOT_INITIALIZED;
+    ACPI_EVAL_INPUT_BUFFER_EX inputBuffer;
+    RtlZeroMemory(&inputBuffer, sizeof(inputBuffer));
+
+    inputBuffer.Signature = ACPI_EVAL_INPUT_BUFFER_SIGNATURE_EX;
+    status = RtlStringCchPrintfA(
+        inputBuffer.MethodName,
+        sizeof(inputBuffer.MethodName),
+        "_UID"
+    );
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    WDFMEMORY outputMemory;
+    PACPI_EVAL_OUTPUT_BUFFER outputBuffer;
+    size_t outputArgumentBufferSize = 32;
+    size_t outputBufferSize = FIELD_OFFSET(ACPI_EVAL_OUTPUT_BUFFER, Argument) + outputArgumentBufferSize;
+
+    WDF_OBJECT_ATTRIBUTES attributes;
+    WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+    attributes.ParentObject = FxDevice;
+
+    status = WdfMemoryCreate(&attributes,
+        NonPagedPoolNx,
+        0,
+        outputBufferSize,
+        &outputMemory,
+        (PVOID*)&outputBuffer);
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    RtlZeroMemory(outputBuffer, outputBufferSize);
+
+    WDF_MEMORY_DESCRIPTOR inputMemDesc;
+    WDF_MEMORY_DESCRIPTOR outputMemDesc;
+    WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&inputMemDesc, &inputBuffer, (ULONG)sizeof(inputBuffer));
+    WDF_MEMORY_DESCRIPTOR_INIT_HANDLE(&outputMemDesc, outputMemory, NULL);
+
+    status = WdfIoTargetSendInternalIoctlSynchronously(
+        WdfDeviceGetIoTarget(FxDevice),
+        NULL,
+        IOCTL_ACPI_EVAL_METHOD_EX,
+        &inputMemDesc,
+        &outputMemDesc,
+        NULL,
+        NULL
+    );
+    if (!NT_SUCCESS(status)) {
+        goto Exit;
+    }
+
+    if (outputBuffer->Signature != ACPI_EVAL_OUTPUT_BUFFER_SIGNATURE) {
+        goto Exit;
+    }
+
+    if (outputBuffer->Count < 1) {
+        goto Exit;
+    }
+
+    UINT32 uid;
+    if (outputBuffer->Argument[0].DataLength >= 4) {
+        uid = *(UINT32*)outputBuffer->Argument->Data;
+    }
+    else if (outputBuffer->Argument[0].DataLength >= 2) {
+        uid = *(UINT16*)outputBuffer->Argument->Data;
+    }
+    else {
+        uid = *(UINT8*)outputBuffer->Argument->Data;
+    }
+    if (PUID) {
+        *PUID = uid;
+    }
+    else {
+        status = STATUS_ACPI_INVALID_ARGUMENT;
+    }
+Exit:
+    if (outputMemory != WDF_NO_HANDLE) {
+        WdfObjectDelete(outputMemory);
+    }
+    return status;
 }

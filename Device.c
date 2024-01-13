@@ -33,7 +33,7 @@ UpdateBits(
 
     ret = SpbReadDataSynchronously(&pDevice->SpbContext, reg, &orig, sizeof(orig));
     orig = _byteswap_ushort(orig);
-    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "%!FUNC! Read Reg 0x%04x: 0x%04x", reg, orig);
+    TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%!FUNC! Read Reg 0x%04x: 0x%04x", reg, orig);
 
     tmp = orig & ~mask;
     tmp |= val & mask;
@@ -45,7 +45,7 @@ UpdateBits(
         //TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "%!FUNC! Successfully updated reg: 0x%04x with mask: 0x%04x and val: 0x%04x! %!STATUS!", reg, mask, val, ret);
         SpbReadDataSynchronously(&pDevice->SpbContext, reg, &tmp, 2);
         tmp = _byteswap_ushort(tmp);
-        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "%!FUNC! Reg 0x%04x: 0x%04x", reg, tmp);
+        TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DEVICE, "%!FUNC! Reg 0x%04x: 0x%04x", reg, tmp);
     }
     else {
         //TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "%!FUNC! Failed to update reg: 0x%04x with mask: 0x%04x and val: 0x%04x! %!STATUS!", reg, mask, val, ret);
@@ -105,7 +105,7 @@ StartAmp(PDEVICE_CONTEXT pDevice) {
     
     SpbReadDataSynchronously(&pDevice->SpbContext, 0x21, &data, 2);
     data = _byteswap_ushort(data);
-    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "Read 0x21: 0x%04x", data);
+    TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "AmpID: %d, Read 0x21: 0x%04x", pDevice->AmpID, data);
 
 
     /* Setup DC-DC Converter if we have configuration */
@@ -122,13 +122,20 @@ StartAmp(PDEVICE_CONTEXT pDevice) {
     /* No current/voltage sense over TDM */
     status |= UpdateBits(pDevice, 0x23, 0x001b, 0x0001);
     status |= UpdateBits(pDevice, 0x26, 0x000f, 0x0000);
+    if (pDevice->AmpID == 1) {
+        status |= UpdateBits(pDevice, 0x26, 0x000f, 0x0001);
+        data = 0x0100;
+        status |= SpbWriteDataSynchronously(&pDevice->SpbContext, 0x26, &data, sizeof(data));
+    }
+
     if ((rev & 0xff) == 0x72)
         status |= UpdateBits(pDevice, 0x64, 0xc000, 0x4000);
     
     /* Turn on this thing */
     status |= UpdateBits(pDevice, 0x00, 0x0001, 0x0000);
     status |= UpdateBits(pDevice, 0x01, 0x0004, 0x0004);
-    
+
+
     /* Re-check SYS CTRL Reg */
     // Actually, it get 0x0 here, so bypass check.
     //SpbReadDataSynchronously(&pDevice->SpbContext, 0x00, &data, 2);

@@ -27,7 +27,7 @@ typedef struct _DEVICE_CONTEXT
     WDFDEVICE               Device;
     WDFINTERRUPT            Interrupt;
     SPB_CONTEXT             SpbContext;
-
+    INT32                   AmpID;
     PCALLBACK_OBJECT        AmpAudioAPICallback;
     PVOID                   AmpAudioAPICallbackObj;
     BOOLEAN                 AmpAudioManaged;
